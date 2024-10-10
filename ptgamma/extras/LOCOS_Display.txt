@@ -1,5 +1,5 @@
-@name LOCOS Display
-@inputs Power EGP1:wirelink EGP2:wirelink EGP1_Conductor:wirelink Cycle1 Cycle2 RLCPT:entity Number:string Bell Horn FrontClassRGB:vector RearClassRGB:vector
+@name LOCOS Display v1.6.1
+@inputs Power EGP1:wirelink EGP2:wirelink EGP1_Conductor:wirelink Cycle1 Cycle2 RLCPT:entity LoadOVR SandOVR SlipOVR Number:string Bell Horn FrontClassRGB:vector RearClassRGB:vector
 @outputs 
 @persist MPH Throttle Load TE Dynamics DynamicBrakingPower Reverser Emergency BrakeWarn WheelSlip ForceSand EqualRes MainRes BrakePipe Cyl
 @persist MU_F MU_R Voltage AirBrakeMode CarCount TrainWeight
@@ -11,11 +11,13 @@ if(first()|dupefinished()){
     #To-Do:
     #Wirelink Input for Loadmeter Variables
     
-    Version = "1.6"
+    Version = "1.6.1"
     
-    ConductorScreen = 0 #If 1, LOCOS will synchronize a third screen with EGP1 for the conductor to view
+    #1.6.1 includes a hack for new wire on line 1015
     
-    HeaderText = "APPALACHIA NORTHERN - No."
+    ConductorScreen = 1 #If 1, LOCOS will synchronize a third screen with EGP1 for the conductor to view
+    
+    HeaderText = "RAILROAD"
     
     AC = 0 #1 for AC Traction, 0 for DC Traction
     MaxTE = 150000 #Maximum Tractive Effort (Only used for AC)
@@ -25,9 +27,9 @@ if(first()|dupefinished()){
     NotchedDynamics = 0
     NumNotches = 8
     
-    MaxSpeed = 70 #Max Speed of Locomotive in MPH
+    MaxSpeed = 72 #Max Speed of Locomotive in MPH
     MaxLoad = 1650 #Full Range of Loadmeter
-    MaxContLoad = 1170 #Maximum Continuous Load - Defines start of Short Time Zone
+    MaxContLoad = 1230 #Maximum Continuous Load - Defines start of Short Time Zone
     
     SkipBoot = 0 #Skip the totally awesome boot sequence (Mostly for testing)
     
@@ -687,16 +689,28 @@ if(first()|dupefinished()){
                 #MPH Throttle Load Dynamics DynamicBrakingPower Reverser Emergency BrakeWarn WheelSlip ForceSand
                 MPH = RLCPTW["MPH",number]
                 Throttle = RLCPTW["Throttle",number]
-                Load = RLCPTW["Load1",number]
+                if(->LoadOVR){
+                    Load = LoadOVR
+                }else{
+                    Load = RLCPTW["Load1",number]
+                }
                 TE = RLCPTW["TE_LBF",number]
                 Dynamics = RLCPTW["Dynamics",number]
                 DynamicBrakingPower = RLCPTW["DynamicBrakingPower",number]
                 Reverser = RLCPTW["Reverser",number]
                 Emergency = RLCPTW["Emergency",number]
                 BrakeWarn = RLCPTW["BrakeWarn",number]
-                WheelSlip = RLCPTW["WheelSlip",number]
-                ForceSand = RLCPTW["ForceSand",number]
-            
+                if(->SlipOVR){
+                    WheelSlip = SlipOVR
+                }else{
+                    WheelSlip = RLCPTW["WheelSlip",number]
+                }
+                
+                if(->SandOVR){
+                    ForceSand = SandOVR
+                }else{
+                    ForceSand = RLCPTW["ForceSand",number]
+                }
                 #Speedometer
                 #This:egpPoly(2+I,polycover(SC,SpeedoType ? MPH*270/120 : MPH*270/90))
                 This:egpSize(1+I,(MPH<1) ? -40 : (SpeedoType ? -MPH*270/120 : -MPH*270/90) - 45)
@@ -996,7 +1010,9 @@ if(clk("clk")){
             EGP1:egpText(10,"Dialing P3X-7572: -",vec2(8,(10)*24))
             EGP1:egpAlign(10,0,1)
             EGP1:egpFont(10,"Lucida Console",16)
-            BootN+=0.05
+            #BootN+=0.05
+            #Ugly hack for now
+            BootN = 11
             timer("boot",Spin)
             break
         case 10.05,
